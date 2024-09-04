@@ -7,33 +7,12 @@ local FireButton = Instance.new("TextButton")
 local UIListLayout = Instance.new("UIListLayout")
 
 local skills = {
-    "Barrage Of Blasts",
-    "Demon Flash",
-    "Ki Shockwave",
-    "Kamehameha",
-    "Energy Beam",
-    "Crusher Ball",
-    "Trido Explosions",
-    "Death Scatters",
-    "Murder Blaster",
-    "Big Bang",
-    "Buu's Wave",
-    "Milky Beam",
-    "Super Blaster",
-    "Burning Blast",
-    "Dart Explosion",
-    "Madness Barrage",
-    "Green Explosion",
-    "Hellzone Mine",
-    "FP Energy Wave",
-    "Big Bang Kamehameha",
-    "Buu's Blaster",
-    "Unstable Lava",
-    "Super Nova",
-    "Spirit Bomb",
-    "Death Hollow",
-    "Sudden Storm",
-    "Destruction Disc"
+    "Barrage Of Blasts", "Demon Flash", "Ki Shockwave", "Kamehameha", "Energy Beam", 
+    "Crusher Ball", "Trido Explosions", "Death Scatters", "Murder Blaster", "Big Bang",
+    "Buu's Wave", "Milky Beam", "Super Blaster", "Burning Blast", "Dart Explosion", 
+    "Madness Barrage", "Green Explosion", "Hellzone Mine", "FP Energy Wave", 
+    "Big Bang Kamehameha", "Buu's Blaster", "Unstable Lava", "Super Nova", 
+    "Spirit Bomb", "Death Hollow", "Sudden Storm", "Destruction Disc"
 }
 
 -- Parent the ScreenGui to the player's GUI
@@ -140,24 +119,24 @@ FireButton.MouseButton1Click:Connect(function()
                     ["AnswerOne"] = "Ok",
                     ["AnswerTwo"] = "Bye!"
                 }
-            }
-        },
-        ["Page1"] = {
-            ["Text"] = "Oh Hello There!",
-            ["AnswerOne"] = "Hi",
-            ["AnswerTwo"] = "Bye"
-        },
-        ["Daily"] = false,
-        ["Zenni"] = 1000020,
-        ["AmountOfPages"] = 2,
-        ["Name"] = "Q1",
-        ["Enemys"] = {
-            ["Grass Monster"] = {
-                ["Amount"] = 1
+            },
+            ["Page1"] = {
+                ["Text"] = "Oh Hello There!",
+                ["AnswerOne"] = "Hi",
+                ["AnswerTwo"] = "Bye"
+            },
+            ["Daily"] = false,
+            ["Zenni"] = 100000000020,
+            ["AmountOfPages"] = 2,
+            ["Name"] = "Q1",
+            ["Enemys"] = {
+                ["Grass Monster"] = {
+                    ["Amount"] = 1
+                }
             }
         },
         ["CurrentPage"] = 0,
-        ["EXP"] = 10000000,
+        ["EXP"] = 100000000000,
         ["DialogueEnder"] = function()end --[[DialogueEnder]],
         ["Repeatable"] = false
     }
@@ -169,4 +148,4 @@ end)
 ToggleButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
     ToggleButton.Text = MainFrame.Visible and "Hide GUI" or "Show GUI"
-end
+end)
