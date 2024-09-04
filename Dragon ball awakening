@@ -1,0 +1,172 @@
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local MainFrame = Instance.new("Frame")
+local SkillDropdown = Instance.new("TextButton")
+local SkillList = Instance.new("ScrollingFrame")
+local FireButton = Instance.new("TextButton")
+local UIListLayout = Instance.new("UIListLayout")
+
+local skills = {
+    "Barrage Of Blasts",
+    "Demon Flash",
+    "Ki Shockwave",
+    "Kamehameha",
+    "Energy Beam",
+    "Crusher Ball",
+    "Trido Explosions",
+    "Death Scatters",
+    "Murder Blaster",
+    "Big Bang",
+    "Buu's Wave",
+    "Milky Beam",
+    "Super Blaster",
+    "Burning Blast",
+    "Dart Explosion",
+    "Madness Barrage",
+    "Green Explosion",
+    "Hellzone Mine",
+    "FP Energy Wave",
+    "Big Bang Kamehameha",
+    "Buu's Blaster",
+    "Unstable Lava",
+    "Super Nova",
+    "Spirit Bomb",
+    "Death Hollow",
+    "Sudden Storm",
+    "Destruction Disc"
+}
+
+-- Parent the ScreenGui to the player's GUI
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Set up the ToggleButton
+ToggleButton.Parent = ScreenGui
+ToggleButton.Text = "Show GUI"
+ToggleButton.Size = UDim2.new(0, 100, 0, 30)
+ToggleButton.Position = UDim2.new(0, 10, 0, 10)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Active = true
+ToggleButton.Draggable = true -- Makes the toggle button draggable
+
+-- Set up the MainFrame
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Size = UDim2.new(0, 300, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+MainFrame.Visible = false -- Start hidden
+MainFrame.Active = true
+MainFrame.Draggable = true -- Makes the Frame draggable
+
+-- Set up the SkillDropdown Button
+SkillDropdown.Parent = MainFrame
+SkillDropdown.Text = "Select Skill"
+SkillDropdown.Size = UDim2.new(0, 280, 0, 30)
+SkillDropdown.Position = UDim2.new(0, 10, 0, 10)
+SkillDropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SkillDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Set up the ScrollingFrame for skill selection
+SkillList.Parent = MainFrame
+SkillList.Size = UDim2.new(0, 280, 0, 100)
+SkillList.Position = UDim2.new(0, 10, 0, 50)
+SkillList.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SkillList.BorderSizePixel = 0
+SkillList.ScrollBarThickness = 8
+SkillList.Visible = false
+SkillList.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+UIListLayout.Parent = SkillList
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Populate the ScrollingFrame with the skill options
+for _, skill in ipairs(skills) do
+    local SkillButton = Instance.new("TextButton")
+    SkillButton.Parent = SkillList
+    SkillButton.Text = skill
+    SkillButton.Size = UDim2.new(1, 0, 0, 30)
+    SkillButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    SkillButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    
+    SkillButton.MouseButton1Click:Connect(function()
+        SkillDropdown.Text = skill
+        SkillList.Visible = false
+    end)
+end
+
+-- Update the CanvasSize of the ScrollingFrame based on the content
+SkillList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SkillList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end)
+
+-- Toggle skill list visibility
+SkillDropdown.MouseButton1Click:Connect(function()
+    SkillList.Visible = not SkillList.Visible
+end)
+
+-- Set up the FireButton
+FireButton.Parent = MainFrame
+FireButton.Text = "Fire Event"
+FireButton.Size = UDim2.new(0, 280, 0, 30)
+FireButton.Position = UDim2.new(0, 10, 0, 160)
+FireButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+FireButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Fire the event with the selected skill
+FireButton.MouseButton1Click:Connect(function()
+    local selectedSkill = SkillDropdown.Text
+    
+    if selectedSkill == "Select Skill" then
+        warn("No skill selected!")
+        return
+    end
+    
+    local args = {
+        [1] = {
+            ["Type"] = "KillQuest",
+            ["Skill"] = selectedSkill,
+            ["Page2"] = {
+                ["Text"] = "So you need a Task huh? ok want to beat up these Grass Monesters For a reward?",
+                ["AnswerOne"] = "Ok",
+                ["AnswerTwo"] = "No"
+            },
+            ["CompletedDialogue"] = {
+                ["AmountOfPages"] = 1,
+                ["DialogueEnder"] = function()end --[[DialogueEnder]],
+                ["Page1"] = {
+                    ["Text"] = "You've Already Completed This Quest",
+                    ["AnswerOne"] = "Ok",
+                    ["AnswerTwo"] = "Bye!"
+                }
+            }
+        },
+        ["Page1"] = {
+            ["Text"] = "Oh Hello There!",
+            ["AnswerOne"] = "Hi",
+            ["AnswerTwo"] = "Bye"
+        },
+        ["Daily"] = false,
+        ["Zenni"] = 1000020,
+        ["AmountOfPages"] = 2,
+        ["Name"] = "Q1",
+        ["Enemys"] = {
+            ["Grass Monster"] = {
+                ["Amount"] = 1
+            }
+        },
+        ["CurrentPage"] = 0,
+        ["EXP"] = 10000000,
+        ["DialogueEnder"] = function()end --[[DialogueEnder]],
+        ["Repeatable"] = false
+    }
+
+    game:GetService("ReplicatedStorage").Events.QuestEvent:FireServer(unpack(args))
+end)
+
+-- Toggle the visibility of the MainFrame when ToggleButton is clicked
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    ToggleButton.Text = MainFrame.Visible and "Hide GUI" or "Show GUI"
+end
