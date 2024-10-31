@@ -1,0 +1,223 @@
+local plr = game.Players.LocalPlayer
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+local Window = OrionLib:MakeWindow({Name = "I love greedy devs", HidePremium = true, SaveConfig = true, ConfigFolder = "OrionTest"})
+
+local FarmingTab = Window:MakeTab({Name = "Farming", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local MiscTab = Window:MakeTab({Name = "Misc", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+-- Variables
+local farming = false
+local questing = false
+local enemyName = ""
+local questNPC = ""
+local range = 5
+local character = plr.Character or plr.CharacterAdded:Wait() -- Initial character
+
+-- Update character on respawn
+local function updateCharacter(newCharacter)
+    character = newCharacter
+end
+plr.CharacterAdded:Connect(updateCharacter)
+
+-- Farming Toggle
+FarmingTab:AddToggle({
+    Name = "Auto Farm",
+    Default = false,
+    Callback = function(state)
+        farming = state
+    end
+})
+
+-- Questing Toggle
+FarmingTab:AddToggle({
+    Name = "Auto Quest",
+    Default = false,
+    Callback = function(state)
+        questing = state
+    end
+})
+
+-- Slider for range
+FarmingTab:AddSlider({
+    Name = "Range",
+    Min = 0,
+    Max = 15,
+    Default = 5,
+    Color = Color3.fromRGB(255, 255, 255),
+    Increment = 1,
+    ValueName = "Distance",
+    Callback = function(value)
+        range = value
+    end
+})
+
+-- Dropdown for enemies
+local enemyDropdown = FarmingTab:AddDropdown({
+    Name = "Enemy",
+    Options = {}, -- Populated with update function
+    Callback = function(selected)
+        enemyName = selected
+    end
+})
+
+function updateDropDown()
+    local updatedList = {}
+    for _, v in pairs(workspace.Main.Live:GetChildren()) do
+        if v.PrimaryPart then
+            table.insert(updatedList, v.Name)
+        end
+    end
+    enemyDropdown:Refresh(updatedList)
+end
+
+FarmingTab:AddButton({
+    Name = "Update Enemy List",
+    Callback = updateDropDown
+})
+
+-- Dropdown for quests
+local questDropdown = FarmingTab:AddDropdown({
+    Name = "Quests",
+    Options = {}, -- Populated with update function
+    Callback = function(selected)
+        questNPC = selected
+    end
+})
+
+function updateQuestDropDown()
+    local questList = {}
+    for _, v in pairs(workspace.QuestObjects:GetChildren()) do
+        if v:IsA("Model") and v.PrimaryPart then
+            table.insert(questList, v.Name)
+        end
+    end
+    questDropdown:Refresh(questList)
+end
+
+FarmingTab:AddButton({
+    Name = "Update Quest List",
+    Callback = updateQuestDropDown
+})
+
+-- Auto Farming Function
+function findEnemy()
+    for _, v in pairs(workspace.Main.Live:GetChildren()) do
+        if v.PrimaryPart and v.Name == enemyName and v:GetAttribute("Dead") == false then
+            return v
+        end
+    end
+    return nil
+end
+
+spawn(function()
+    while task.wait() do
+        if farming and character then
+            local enemy = findEnemy()
+            if enemy then
+                character:MoveTo(enemy.PrimaryPart.Position + Vector3.new(0, range, 0))
+                repeat
+                    if not farming then break end
+                    for i = 1, 7 do
+                        if enemy and enemy:GetAttribute("Dead") == false then
+                            game:GetService("ReplicatedStorage").Events.TryAttack:FireServer({
+                                ["Victim"] = enemy,
+                                ["Type"] = "Light",
+                                ["VictimPosition"] = enemy.PrimaryPart.Position,
+                                ["LocalInfo"] = {["Flying"] = true},
+                                ["CurrentLight"] = i,
+                                ["CurrentLightCombo"] = 1,
+                                ["CurrentHeavy"] = 3,
+                                ["AnimSet"] = "Vegito"
+                            })
+                        end
+                        task.wait(0.08)
+                    end
+                until not farming or not enemy or enemy:GetAttribute("Dead")
+            end
+        end
+    end
+end)
+
+-- Auto Quest Function
+spawn(function()
+    while task.wait() do
+        if questing then
+            local npc = workspace.QuestObjects:FindFirstChild(questNPC)
+            if npc then
+                for _, quest in pairs(workspace.QuestPackages:GetChildren()) do
+                    local questModel = quest:FindFirstChildWhichIsA("Model")
+                    if questModel and questModel.PrimaryPart and (npc.PrimaryPart.Position - questModel.PrimaryPart.Position).Magnitude < 6 then
+                        if not plr.PlayerGui.QuestCards.Root.QuestCardsList:FindFirstChild(quest.Name) then
+                            game:GetService("ReplicatedStorage").dataRemoteEvent:FireServer({
+                                [1] = quest.Name,
+                                [2] = utf8.char(6)
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Miscellaneous section for revealing fragments
+MiscTab:AddToggle({
+    Name = "Auto Reveal Fragments",
+    Default = false,
+    Callback = function(state)
+        if state then
+            spawn(function()
+                local ui = plr.PlayerGui.Inventory.Root.RightPanel.InventoryGridContainer.InventoryGrid
+                while state do
+                    for _, v in pairs(ui:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Text == "?" then
+                            game:GetService("ReplicatedStorage").dataRemoteEvent:FireServer({
+                                [1] = {
+                                    ["GUID"] = v.Parent.Parent.Name,
+                                    ["Data"] = { ["Revealed"] = true },
+                                    ["Category"] = "Bindable"
+                                },
+                                [2] = "~"
+                            })
+                        end
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end
+})
+
+-- Reveal Soul Orbs Button
+MiscTab:AddButton({
+    Name = "Reveal Soul Orbs",
+    Callback = function()
+        for _, v in pairs(workspace.Camera:GetChildren()) do
+            if v.Name == "SelectableEffect" and v:FindFirstChild("Glow") and v.Glow:FindFirstChild("BillboardGui") then
+                v.Glow.BillboardGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+            end
+        end
+    end
+})
+
+-- Auto Reveal Orbs Toggle
+MiscTab:AddToggle({
+    Name = "Auto Reveal Orbs",
+    Default = false,
+    Callback = function(state)
+        if state then
+            spawn(function()
+                while state do
+                    for _, v in pairs(workspace.Camera:GetChildren()) do
+                        if v.Name == "SelectableEffect" and v:FindFirstChild("Glow") and v.Glow:FindFirstChild("BillboardGui") then
+                            v.Glow.BillboardGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+                        end
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end
+})
+
+OrionLib:Init(
