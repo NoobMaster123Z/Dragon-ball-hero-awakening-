@@ -1,0 +1,282 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+_G.AutoMob = false
+_G.AutoBoss = false
+_G.AutoAllBoss = false
+_G.AutoSkill = false
+_G.AntiAgro = false
+_G.DeleteCommon = false
+_G.DeleteRare = false
+
+local Players = game:GetService("Players")
+local ReplicatedStoragee = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+
+Player.Idled:Connect(function()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Combat Function
+function Click()
+    local plr = Player.Character.HumanoidRootPart
+    local Remote = ReplicatedStoragee.RemoteEvents.BladeCombatRemote
+    local args = {
+        [1] = false,
+        [2] = plr.Position,
+        [3] = plr.CFrame
+    }
+    Remote:FireServer(unpack(args))
+end
+
+-- Teleport to Target
+function Teleport(ene)
+    Player.Character.HumanoidRootPart.CFrame = ene.CFrame * CFrame.new(0, 0, 2)
+end
+
+-- Bring Multiple Mobs to Player
+function BringMobs()
+    local plr = Player.Character.HumanoidRootPart
+    for _, v in pairs(workspace.Live:GetChildren()) do
+        if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+            -- Check if it's the selected mob
+            if v.Name == SelectedMob then
+                -- Bring all instances of the selected mob
+                v.HumanoidRootPart.CFrame = plr.CFrame * CFrame.new(0, 0, -2)
+            end
+        end
+    end
+end
+
+-- Auto Mob Farming
+function AutoMob()
+    task.spawn(function()
+        while task.wait() do
+            if not _G.AutoMob then break end
+            pcall(function()
+                -- Bring all the selected mobs to player if "Bring Mob" is enabled
+                if BringMob then
+                    BringMobs()
+                end
+                
+                for _, v in pairs(workspace.Live:GetChildren()) do  
+                    if v:IsA("Model") and v.Name == SelectedMob and v:FindFirstChild("HumanoidRootPart") then  
+                        if v.Humanoid.Health > 0 then  
+                            Teleport(v.HumanoidRootPart)  
+                            Click()  
+                            if Kill then  
+                                v.Humanoid.Health = 0  -- Insta kill logic  
+                            end  
+                        end  
+                    end  
+                end  
+            end)  
+        end  
+    end)
+end
+
+-- Auto Boss Farming
+function AutoBoss()
+    task.spawn(function()
+        while task.wait() do
+            if not _G.AutoBoss then break end
+            pcall(function()
+                for _, v in pairs(workspace.Live:GetChildren()) do
+                    if v:IsA("Model") and v.Name == SelectedBoss and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                        Teleport(v.HumanoidRootPart)
+                        Click()
+                        if Kill then
+                            v.Humanoid.Health = 0  -- Insta kill logic for bosses
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto All Boss Farming
+function AutoAllBoss()
+    task.spawn(function()
+        while task.wait() do
+            if not _G.AutoAllBoss then break end
+            pcall(function()
+                for _, v in pairs(workspace.Live:GetChildren()) do
+                    if v:IsA("Model") and v.Humanoid.Health > 0 then
+                        Teleport(v.HumanoidRootPart)
+                        Click()
+                        if Kill then
+                            v.Humanoid.Health = 0  -- Insta kill logic for all bosses
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Anti-Agro Functionality (Optional)
+if _G.AntiAgro then
+    local Connection
+    if _G.Connection then _G.Connection:Disconnect() end
+    _G.Connection = RunService.Stepped:Connect(function()
+        pcall(function()
+            sethiddenproperty(Player, "SimulationRadius", 9e3)
+            if _G.AntiAgro and Player.Character:FindFirstChild("Player") then
+                Player.Character.Player:Destroy()
+            end
+        end)
+    end)
+end
+
+-- Body Velocity for Floating or Staying in Place
+function Float()
+    local plr = Player.Character.HumanoidRootPart
+    if _G.AutoMob or _G.AutoBoss or _G.AutoAllBoss and not plr:FindFirstChild("BodyVelocity") then
+        local p = Instance.new("BodyVelocity", plr)
+        p.Velocity = Vector3.new(0, 0, 0)
+    elseif not _G.AutoMob or not _G.AutoBoss or not _G.AutoAllBoss and plr:FindFirstChild("BodyVelocity") then
+        plr.BodyVelocity:Destroy()
+    end
+end
+
+-- Insta Kill
+while true do
+    wait(1)
+    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 112412400000)
+    sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 112412400000)
+    for i,d in pairs(game.Workspace:GetDescendants()) do
+        if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+            d.Health = 0
+        end
+    end
+end
+
+-- GUI Setup using Uzi Library
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/flux.lua"))()
+local w = library:Window("Uzu Scripts", "Bizarre Odyssey", Color3.fromRGB(66, 134, 245), Enum.KeyCode.LeftControl)
+
+local HomeTab = w:Tab("Home", 6026568198)
+HomeTab:Button("Update:", "", function()
+    library:Notification("Better Autofarm", "Thanks")
+end)
+
+HomeTab:Line()
+HomeTab:Button("Script by Uzu", "", function()
+    setclipboard("discord.gg/waAsQFwcBn")
+    library:Notification("Check your Clipboard", "Alright")
+end)
+HomeTab:Line()
+HomeTab:Bind("Toggle Gui", Enum.KeyCode.LeftControl, function()
+    library:Close()
+end)
+
+local FarmingTab = w:Tab("Farming", 6034287535)
+
+-- Function to collect all mobs and their quantities from workspace.Live
+function getAllMobsWithQuantities()
+    local mobCounts = {}
+    for _, v in pairs(workspace.Live:GetChildren()) do
+        if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+            local mobName = v.Name
+            mobCounts[mobName] = (mobCounts[mobName] or 0) + 1
+        end
+    end
+
+    local mobNamesWithCounts = {}  
+    for mobName, count in pairs(mobCounts) do  
+        table.insert(mobNamesWithCounts, mobName .. " x " .. count)  
+    end  
+    return mobNamesWithCounts
+end
+
+-- Mob Dropdown with all models in workspace.Live and their counts
+local mobDropdownValues = getAllMobsWithQuantities()
+
+FarmingTab:Toggle("Auto Mob", "", false, function(t)
+    _G.AutoMob = t
+    AutoMob()
+end)
+
+FarmingTab:Dropdown("Select Mob", mobDropdownValues, function(v)
+    SelectedMob = v:match("^(.-) x")  -- Get just the mob name without quantity
+end)
+
+FarmingTab:Toggle("Auto Boss", "", false, function(t)
+    _G.AutoBoss = t
+    AutoBoss()
+end)
+
+-- Boss Dropdown with all models in workspace.Live
+FarmingTab:Dropdown("Select Boss", mobDropdownValues, function(t)
+    SelectedBoss = t:match("^(.-) x")  -- Get just the boss name without quantity
+end)
+
+FarmingTab:Toggle("Auto All Boss", "", false, function(t)
+    _G.AutoAllBoss = t
+    AutoAllBoss()
+end)
+
+FarmingTab:Line()
+FarmingTab:Toggle("Bring Mob", "", false, function(t)
+    BringMob = t
+end)
+
+FarmingTab:Toggle("Insta Kill", "", false, function(t)
+    Kill = t
+end)
+
+FarmingTab:Toggle("Auto Skill", "", false, function(t)
+    _G.AutoSkill = t
+    AutoSkill()
+end)
+
+FarmingTab:Line()
+FarmingTab:Toggle("Anti Agro", "Dont use it when doing Auto Boss", false, function(t)
+    _G.AntiAgro = t
+    if not _G.AntiAgro then
+        Player.Character:BreakJoints()
+    end
+end)
+
+-- Teleportation Tab
+local TeleTab = w:Tab("Teleports", 8916381379)
+TeleTab:Button("West City", "", function()
+    Player.Character.HumanoidRootPart.CFrame = workspace.SpawnLocation.CFrame
+end)
+
+for _, v in pairs(workspace.GameStuff:GetChildren()) do
+    if v.Name:match("Teleporter") and v.Name ~= "WestCityTeleporter" then
+        local ssplit = v.Name:split("Teleporter")
+        TeleTab:Button(tostring(ssplit[1]), "", function()
+            Player.Character.HumanoidRootPart.CFrame = v.TeleportPart.CFrame
+        end)
+    end
+end
+
+-- Misc Tab
+local MiscTab = w:Tab("Misc", 8916127218)
+MiscTab:Button("Disable Effects", "", function()
+    pcall(function()
+        game.Workspace.Effects:Destroy()
+    end)
+end)
+
+MiscTab:Line()
+local Util = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/stuff.lua"))()
+MiscTab:Button("Rejoin", "", function()
+    library:Notification("Rejoining Please Wait", "Alright")
+    Util:Rejoin()
+end)
+
+MiscTab:Button("Serverhop", "", function()
+    library:Notification("Finding Server... \nPlease Wait", "Alright")
+    Util:Serverhop()
+end)
+
+MiscTab:Button("Serverhop Low Server", "", function()
+    library:Notification("Finding Server... \nPlease Wait", "Alright")
+    Util:ServerhopLow()
+end)
