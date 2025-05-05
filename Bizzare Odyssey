@@ -36,17 +36,10 @@ function Teleport(ene)
     Player.Character.HumanoidRootPart.CFrame = ene.CFrame * CFrame.new(0, 0, 2)
 end
 
--- Bring Multiple Mobs to Player
-function BringMobs()
-    local plr = Player.Character.HumanoidRootPart
-    for _, v in pairs(workspace.Live:GetChildren()) do
-        if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-            -- Check if it's the selected mob
-            if v.Name == SelectedMob then
-                -- Bring all instances of the selected mob
-                v.HumanoidRootPart.CFrame = plr.CFrame * CFrame.new(0, 0, -2)
-            end
-        end
+-- Insta Kill Logic
+function InstaKill(v)
+    if v.Humanoid.Health > 0 then
+        v.Humanoid.Health = 0 -- Insta kill logic
     end
 end
 
@@ -56,24 +49,15 @@ function AutoMob()
         while task.wait() do
             if not _G.AutoMob then break end
             pcall(function()
-                -- Bring all the selected mobs to player if "Bring Mob" is enabled
-                if BringMob then
-                    BringMobs()
+                for _, v in pairs(workspace.Live:GetChildren()) do
+                    if v:IsA("Model") and v.Name == SelectedMob and v:FindFirstChild("HumanoidRootPart") then
+                        Teleport(v.HumanoidRootPart)
+                        Click()
+                        InstaKill(v) -- Insta kill selected mob
+                    end
                 end
-                
-                for _, v in pairs(workspace.Live:GetChildren()) do  
-                    if v:IsA("Model") and v.Name == SelectedMob and v:FindFirstChild("HumanoidRootPart") then  
-                        if v.Humanoid.Health > 0 then  
-                            Teleport(v.HumanoidRootPart)  
-                            Click()  
-                            if Kill then  
-                                v.Humanoid.Health = 0  -- Insta kill logic  
-                            end  
-                        end  
-                    end  
-                end  
-            end)  
-        end  
+            end)
+        end
     end)
 end
 
@@ -84,12 +68,10 @@ function AutoBoss()
             if not _G.AutoBoss then break end
             pcall(function()
                 for _, v in pairs(workspace.Live:GetChildren()) do
-                    if v:IsA("Model") and v.Name == SelectedBoss and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                    if v:IsA("Model") and v.Name == SelectedBoss and v:FindFirstChild("HumanoidRootPart") then
                         Teleport(v.HumanoidRootPart)
                         Click()
-                        if Kill then
-                            v.Humanoid.Health = 0  -- Insta kill logic for bosses
-                        end
+                        InstaKill(v) -- Insta kill selected boss
                     end
                 end
             end)
@@ -107,9 +89,7 @@ function AutoAllBoss()
                     if v:IsA("Model") and v.Humanoid.Health > 0 then
                         Teleport(v.HumanoidRootPart)
                         Click()
-                        if Kill then
-                            v.Humanoid.Health = 0  -- Insta kill logic for all bosses
-                        end
+                        InstaKill(v) -- Insta kill logic for all bosses
                     end
                 end
             end)
@@ -117,13 +97,12 @@ function AutoAllBoss()
     end)
 end
 
--- Anti-Agro Functionality (Optional)
+-- Anti-Agro Functionality (Optional, still left out the radius stuff)
 if _G.AntiAgro then
     local Connection
     if _G.Connection then _G.Connection:Disconnect() end
     _G.Connection = RunService.Stepped:Connect(function()
         pcall(function()
-            sethiddenproperty(Player, "SimulationRadius", 9e3)
             if _G.AntiAgro and Player.Character:FindFirstChild("Player") then
                 Player.Character.Player:Destroy()
             end
@@ -131,31 +110,8 @@ if _G.AntiAgro then
     end)
 end
 
--- Body Velocity for Floating or Staying in Place
-function Float()
-    local plr = Player.Character.HumanoidRootPart
-    if _G.AutoMob or _G.AutoBoss or _G.AutoAllBoss and not plr:FindFirstChild("BodyVelocity") then
-        local p = Instance.new("BodyVelocity", plr)
-        p.Velocity = Vector3.new(0, 0, 0)
-    elseif not _G.AutoMob or not _G.AutoBoss or not _G.AutoAllBoss and plr:FindFirstChild("BodyVelocity") then
-        plr.BodyVelocity:Destroy()
-    end
-end
-
--- Insta Kill
-while true do
-    wait(1)
-    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 112412400000)
-    sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 112412400000)
-    for i,d in pairs(game.Workspace:GetDescendants()) do
-        if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
-            d.Health = 0
-        end
-    end
-end
-
 -- GUI Setup using Uzi Library
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/flux.lua"))()
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/uzi.lua"))()
 local w = library:Window("Uzu Scripts", "Bizarre Odyssey", Color3.fromRGB(66, 134, 245), Enum.KeyCode.LeftControl)
 
 local HomeTab = w:Tab("Home", 6026568198)
@@ -185,10 +141,10 @@ function getAllMobsWithQuantities()
         end
     end
 
-    local mobNamesWithCounts = {}  
-    for mobName, count in pairs(mobCounts) do  
-        table.insert(mobNamesWithCounts, mobName .. " x " .. count)  
-    end  
+    local mobNamesWithCounts = {}
+    for mobName, count in pairs(mobCounts) do
+        table.insert(mobNamesWithCounts, mobName .. " x " .. count)
+    end
     return mobNamesWithCounts
 end
 
@@ -220,20 +176,10 @@ FarmingTab:Toggle("Auto All Boss", "", false, function(t)
 end)
 
 FarmingTab:Line()
-FarmingTab:Toggle("Bring Mob", "", false, function(t)
-    BringMob = t
-end)
-
 FarmingTab:Toggle("Insta Kill", "", false, function(t)
     Kill = t
 end)
 
-FarmingTab:Toggle("Auto Skill", "", false, function(t)
-    _G.AutoSkill = t
-    AutoSkill()
-end)
-
-FarmingTab:Line()
 FarmingTab:Toggle("Anti Agro", "Dont use it when doing Auto Boss", false, function(t)
     _G.AntiAgro = t
     if not _G.AntiAgro then
