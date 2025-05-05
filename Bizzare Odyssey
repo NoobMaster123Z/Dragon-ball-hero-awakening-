@@ -1,247 +1,122 @@
-if not game:IsLoaded() then game.Loaded:Wait() end
-
--- Globals
-_G.AutoMob = false
-_G.AutoBoss = false
-_G.AutoAllBoss = false
-_G.AntiAgro = false
-_G.DeleteCommon = false
-_G.DeleteRare = false
-local SelectedMob, SelectedBoss, Kill = nil, nil, false
-
--- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local VirtualUser = game:GetService("VirtualUser")
 local Player = Players.LocalPlayer
+local HRP = Player.Character:WaitForChild("HumanoidRootPart")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 
--- Anti-AFK
-Player.Idled:Connect(function()
-	VirtualUser:ClickButton2(Vector2.new())
+-- Create the main frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 150, 0, 150)
+MainFrame.Position = UDim2.new(0.5, -75, 0.5, -75)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.BackgroundTransparency = 0.5
+MainFrame.Parent = ScreenGui
+
+-- Create "Kill All" button
+local KillAllButton = Instance.new("TextButton")
+KillAllButton.Size = UDim2.new(0, 130, 0, 40)
+KillAllButton.Position = UDim2.new(0, 10, 0, 10)
+KillAllButton.Text = "Insta Kill"
+KillAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+KillAllButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+KillAllButton.Parent = MainFrame
+
+-- Create "Bring Mobs" toggle button
+local BringMobsButton = Instance.new("TextButton")
+BringMobsButton.Size = UDim2.new(0, 130, 0, 40)
+BringMobsButton.Position = UDim2.new(0, 10, 0, 60)
+BringMobsButton.Text = "Bring Mobs (Off)"
+BringMobsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BringMobsButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+BringMobsButton.Parent = MainFrame
+
+local isBringingMobs = false
+
+-- Function to kill all mobs
+local function KillAllMobs()
+    for _, mob in pairs(workspace.Live:GetChildren()) do
+        if mob:IsA("Model") and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+            -- Insta Kill
+            mob.Humanoid.Health = 0
+        end
+    end
+end
+
+-- Function to bring mobs in front of the player within 100 studs radius
+local function BringMobs()
+    for _, mob in pairs(workspace.Live:GetChildren()) do
+        if mob:IsA("Model") and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+            -- Check if mob is within 100 studs
+            if (HRP.Position - mob.HumanoidRootPart.Position).Magnitude <= 100 then
+                -- Bring mob to the player in front of them at -6
+                mob:PivotTo(HRP.CFrame * CFrame.new(0, 0, -6)) -- Position it 6 studs in front of the player
+            end
+        end
+    end
+end
+
+-- Button callback for "Insta Kill"
+KillAllButton.MouseButton1Click:Connect(function()
+    KillAllMobs()
 end)
 
--- Rayfield UI
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/source.lua"))()
-local Window = Rayfield:CreateWindow({Name = "Bizarre Odyssey Autofarm", LoadingTitle = "Uzu Scripts", ConfigurationSaving = {Enabled = false}})
+-- Button callback for "Bring Mobs"
+BringMobsButton.MouseButton1Click:Connect(function()
+    isBringingMobs = not isBringingMobs
+    if isBringingMobs then
+        BringMobsButton.Text = "Bring Mobs (On)"
+    else
+        BringMobsButton.Text = "Bring Mobs (Off)"
+    end
+end)
 
--- Get Mobs and Bosses
-function GetMobAndBossLists()
-	local mobList, bossList, mobCounts = {}, {}, {}
-	for _, v in pairs(workspace.Live:GetChildren()) do
-		if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-			mobCounts[v.Name] = (mobCounts[v.Name] or 0) + 1
-		end
-	end
-	for name, count in pairs(mobCounts) do
-		if count == 1 then
-			table.insert(bossList, name)
-		else
-			table.insert(mobList, name .. " x " .. count)
-		end
-	end
-	return mobList, bossList
+-- Create a draggable corner to use for dragging the GUI
+local dragHandle = Instance.new("Frame")
+dragHandle.Size = UDim2.new(0, 20, 0, 20)
+dragHandle.Position = UDim2.new(1, -20, 1, -20)
+dragHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+dragHandle.BackgroundTransparency = 0.5
+dragHandle.Parent = MainFrame
+
+-- Draggable functionality for the corner
+local dragStart
+local startPos
+local dragging = false
+
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
--- Attack Logic
-function Click()
-	local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-	if root then
-		ReplicatedStorage.RemoteEvents.BladeCombatRemote:FireServer(false, root.Position, root.CFrame)
-	end
-end
+dragHandle.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
 
-function Teleport(v)
-	if v and v:FindFirstChild("HumanoidRootPart") then
-		Player.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-	end
-end
+    -- Start dragging when the corner is clicked
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+                MainFrame.InputChanged:Disconnect(updateDrag)
+            end
+        end)
+        MainFrame.InputChanged:Connect(updateDrag)
+    end
+end)
 
-function InstaKill(v)
-	if Kill and v:FindFirstChild("Humanoid") then
-		v.Humanoid.Health = 0
-	end
-end
+-- Hide GUI on player death
+Player.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Died:Connect(function()
+        ScreenGui:Destroy()
+    end)
+end)
 
-function AutoMob()
-	task.spawn(function()
-		while _G.AutoMob and SelectedMob do
-			for _, v in pairs(workspace.Live:GetChildren()) do
-				if v:IsA("Model") and v.Name == SelectedMob then
-					Teleport(v)
-					Click()
-					InstaKill(v)
-				end
-			end
-			task.wait()
-		end
-	end)
-end
-
-function AutoBoss()
-	task.spawn(function()
-		while _G.AutoBoss and SelectedBoss do
-			for _, v in pairs(workspace.Live:GetChildren()) do
-				if v:IsA("Model") and v.Name == SelectedBoss then
-					Teleport(v)
-					Click()
-					InstaKill(v)
-				end
-			end
-			task.wait()
-		end
-	end)
-end
-
-function AutoAllBoss()
-	task.spawn(function()
-		while _G.AutoAllBoss do
-			for _, v in pairs(workspace.Live:GetChildren()) do
-				if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-					Teleport(v)
-					Click()
-					InstaKill(v)
-				end
-			end
-			task.wait()
-		end
-	end)
-end
-
--- Anti-Agro
-local antiAgroConnection
-function EnableAntiAgro()
-	if antiAgroConnection then antiAgroConnection:Disconnect() end
-	antiAgroConnection = RunService.Stepped:Connect(function()
-		if _G.AntiAgro and Player.Character and Player.Character:FindFirstChild("Player") then
-			Player.Character.Player:Destroy()
-		end
-	end)
-end
-
--- Farming Tab
-local FarmTab = Window:CreateTab("Farming")
-
-local mobList, bossList = GetMobAndBossLists()
-
-FarmTab:CreateDropdown({
-	Name = "Select Mob",
-	Options = mobList,
-	Callback = function(v)
-		SelectedMob = v:match("^(.-) x")
-	end
-})
-
-FarmTab:CreateToggle({
-	Name = "Auto Mob",
-	CurrentValue = false,
-	Callback = function(v)
-		_G.AutoMob = v
-		if v then AutoMob() end
-	end
-})
-
-FarmTab:CreateDropdown({
-	Name = "Select Boss",
-	Options = bossList,
-	Callback = function(v)
-		SelectedBoss = v
-	end
-})
-
-FarmTab:CreateToggle({
-	Name = "Auto Boss",
-	CurrentValue = false,
-	Callback = function(v)
-		_G.AutoBoss = v
-		if v then AutoBoss() end
-	end
-})
-
-FarmTab:CreateToggle({
-	Name = "Auto All Boss",
-	CurrentValue = false,
-	Callback = function(v)
-		_G.AutoAllBoss = v
-		if v then AutoAllBoss() end
-	end
-})
-
-FarmTab:CreateToggle({
-	Name = "Insta Kill",
-	CurrentValue = false,
-	Callback = function(v)
-		Kill = v
-	end
-})
-
-FarmTab:CreateToggle({
-	Name = "Anti Agro (Disable for bosses)",
-	CurrentValue = false,
-	Callback = function(v)
-		_G.AntiAgro = v
-		EnableAntiAgro()
-		if not v then Player.Character:BreakJoints() end
-	end
-})
-
--- Teleport Tab
-local TeleTab = Window:CreateTab("Teleports")
-
-TeleTab:CreateButton({
-	Name = "West City",
-	Callback = function()
-		Player.Character.HumanoidRootPart.CFrame = workspace.SpawnLocation.CFrame
-	end
-})
-
-for _, v in pairs(workspace.GameStuff:GetChildren()) do
-	if v.Name:match("Teleporter") and v.Name ~= "WestCityTeleporter" then
-		local label = v.Name:split("Teleporter")[1]
-		TeleTab:CreateButton({
-			Name = label,
-			Callback = function()
-				Player.Character.HumanoidRootPart.CFrame = v.TeleportPart.CFrame
-			end
-		})
-	end
-end
-
--- Misc Tab
-local MiscTab = Window:CreateTab("Misc")
-
-MiscTab:CreateButton({
-	Name = "Disable Effects",
-	Callback = function()
-		pcall(function()
-			workspace.Effects:Destroy()
-		end)
-	end
-})
-
--- Rejoin / Serverhop using utility
-local Util = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/stuff.lua"))()
-
-MiscTab:CreateButton({
-	Name = "Rejoin",
-	Callback = function()
-		Rayfield:Notify({Title = "Rejoining", Content = "Please wait...", Duration = 3})
-		Util:Rejoin()
-	end
-})
-
-MiscTab:CreateButton({
-	Name = "Serverhop",
-	Callback = function()
-		Rayfield:Notify({Title = "Serverhop", Content = "Searching servers...", Duration = 3})
-		Util:Serverhop()
-	end
-})
-
-MiscTab:CreateButton({
-	Name = "Low Pop Serverhop",
-	Callback = function()
-		Rayfield:Notify({Title = "Serverhop", Content = "Finding low server...", Duration = 3})
-		Util:ServerhopLow()
-	end
-})
+-- Update bring mobs function if toggled on
+game:GetService("RunService").Heartbeat:Connect(function()
+    if isBringingMobs then
+        BringMobs()
+    end
+end)
