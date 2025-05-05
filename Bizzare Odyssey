@@ -77,7 +77,7 @@ function GetMobList()
 end
 
 -- Load Rayfield UI
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source.lua"))()
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/source.lua"))()
 
 local Window = Rayfield:CreateWindow({Name = "Bizarre Odyssey Autofarm", ConfigurationSaving = {Enabled = false}})
 
