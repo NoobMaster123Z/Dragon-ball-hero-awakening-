@@ -3,116 +3,245 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 -- Globals
 _G.AutoMob = false
 _G.AutoBoss = false
-local SelectedMob = nil
-local SelectedBoss = nil
+_G.AutoAllBoss = false
+_G.AntiAgro = false
+_G.DeleteCommon = false
+_G.DeleteRare = false
+local SelectedMob, SelectedBoss, Kill = nil, nil, false
 
 -- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local Player = Players.LocalPlayer
 
--- Prevent AFK Kick
+-- Anti-AFK
 Player.Idled:Connect(function()
-    game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+	VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Click Attack
-function Click()
-    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    ReplicatedStorage.RemoteEvents.BladeCombatRemote:FireServer(false, hrp.Position, hrp.CFrame)
-end
-
--- Teleport & Kill
-function TeleportAndKill(target)
-    if target and target:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("Humanoid") then
-        Player.Character.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-        Click()
-        target.Humanoid.Health = 0
-    end
-end
-
--- Auto Mob
-function StartAutoMob()
-    task.spawn(function()
-        while _G.AutoMob and SelectedMob do
-            for _, v in pairs(workspace.Live:GetChildren()) do
-                if v.Name == SelectedMob then
-                    TeleportAndKill(v)
-                end
-            end
-            task.wait(0.5)
-        end
-    end)
-end
-
--- Auto Boss
-function StartAutoBoss()
-    task.spawn(function()
-        while _G.AutoBoss and SelectedBoss do
-            for _, v in pairs(workspace.Live:GetChildren()) do
-                if v.Name == SelectedBoss then
-                    TeleportAndKill(v)
-                end
-            end
-            task.wait(0.5)
-        end
-    end)
-end
-
--- Mob List
-function GetMobList()
-    local names = {}
-    local cache = {}
-    for _, v in pairs(workspace.Live:GetChildren()) do
-        if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-            if not cache[v.Name] then
-                table.insert(names, v.Name)
-                cache[v.Name] = true
-            end
-        end
-    end
-    return names
-end
-
--- Load Rayfield UI
+-- Rayfield UI
 local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/source.lua"))()
+local Window = Rayfield:CreateWindow({Name = "Bizarre Odyssey Autofarm", LoadingTitle = "Uzu Scripts", ConfigurationSaving = {Enabled = false}})
 
-local Window = Rayfield:CreateWindow({Name = "Bizarre Odyssey Autofarm", ConfigurationSaving = {Enabled = false}})
+-- Get Mobs and Bosses
+function GetMobAndBossLists()
+	local mobList, bossList, mobCounts = {}, {}, {}
+	for _, v in pairs(workspace.Live:GetChildren()) do
+		if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+			mobCounts[v.Name] = (mobCounts[v.Name] or 0) + 1
+		end
+	end
+	for name, count in pairs(mobCounts) do
+		if count == 1 then
+			table.insert(bossList, name)
+		else
+			table.insert(mobList, name .. " x " .. count)
+		end
+	end
+	return mobList, bossList
+end
 
-local Tab = Window:CreateTab("Farming", nil)
+-- Attack Logic
+function Click()
+	local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+	if root then
+		ReplicatedStorage.RemoteEvents.BladeCombatRemote:FireServer(false, root.Position, root.CFrame)
+	end
+end
 
-Tab:CreateDropdown({
-    Name = "Select Mob",
-    Options = GetMobList(),
-    Callback = function(v)
-        SelectedMob = v
-    end
+function Teleport(v)
+	if v and v:FindFirstChild("HumanoidRootPart") then
+		Player.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+	end
+end
+
+function InstaKill(v)
+	if Kill and v:FindFirstChild("Humanoid") then
+		v.Humanoid.Health = 0
+	end
+end
+
+function AutoMob()
+	task.spawn(function()
+		while _G.AutoMob and SelectedMob do
+			for _, v in pairs(workspace.Live:GetChildren()) do
+				if v:IsA("Model") and v.Name == SelectedMob then
+					Teleport(v)
+					Click()
+					InstaKill(v)
+				end
+			end
+			task.wait()
+		end
+	end)
+end
+
+function AutoBoss()
+	task.spawn(function()
+		while _G.AutoBoss and SelectedBoss do
+			for _, v in pairs(workspace.Live:GetChildren()) do
+				if v:IsA("Model") and v.Name == SelectedBoss then
+					Teleport(v)
+					Click()
+					InstaKill(v)
+				end
+			end
+			task.wait()
+		end
+	end)
+end
+
+function AutoAllBoss()
+	task.spawn(function()
+		while _G.AutoAllBoss do
+			for _, v in pairs(workspace.Live:GetChildren()) do
+				if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+					Teleport(v)
+					Click()
+					InstaKill(v)
+				end
+			end
+			task.wait()
+		end
+	end)
+end
+
+-- Anti-Agro
+local antiAgroConnection
+function EnableAntiAgro()
+	if antiAgroConnection then antiAgroConnection:Disconnect() end
+	antiAgroConnection = RunService.Stepped:Connect(function()
+		if _G.AntiAgro and Player.Character and Player.Character:FindFirstChild("Player") then
+			Player.Character.Player:Destroy()
+		end
+	end)
+end
+
+-- Farming Tab
+local FarmTab = Window:CreateTab("Farming")
+
+local mobList, bossList = GetMobAndBossLists()
+
+FarmTab:CreateDropdown({
+	Name = "Select Mob",
+	Options = mobList,
+	Callback = function(v)
+		SelectedMob = v:match("^(.-) x")
+	end
 })
 
-Tab:CreateToggle({
-    Name = "Auto Mob",
-    CurrentValue = false,
-    Callback = function(v)
-        _G.AutoMob = v
-        if v then StartAutoMob() end
-    end
+FarmTab:CreateToggle({
+	Name = "Auto Mob",
+	CurrentValue = false,
+	Callback = function(v)
+		_G.AutoMob = v
+		if v then AutoMob() end
+	end
 })
 
-Tab:CreateDropdown({
-    Name = "Select Boss",
-    Options = GetMobList(),
-    Callback = function(v)
-        SelectedBoss = v
-    end
+FarmTab:CreateDropdown({
+	Name = "Select Boss",
+	Options = bossList,
+	Callback = function(v)
+		SelectedBoss = v
+	end
 })
 
-Tab:CreateToggle({
-    Name = "Auto Boss",
-    CurrentValue = false,
-    Callback = function(v)
-        _G.AutoBoss = v
-        if v then StartAutoBoss() end
-    end
+FarmTab:CreateToggle({
+	Name = "Auto Boss",
+	CurrentValue = false,
+	Callback = function(v)
+		_G.AutoBoss = v
+		if v then AutoBoss() end
+	end
+})
+
+FarmTab:CreateToggle({
+	Name = "Auto All Boss",
+	CurrentValue = false,
+	Callback = function(v)
+		_G.AutoAllBoss = v
+		if v then AutoAllBoss() end
+	end
+})
+
+FarmTab:CreateToggle({
+	Name = "Insta Kill",
+	CurrentValue = false,
+	Callback = function(v)
+		Kill = v
+	end
+})
+
+FarmTab:CreateToggle({
+	Name = "Anti Agro (Disable for bosses)",
+	CurrentValue = false,
+	Callback = function(v)
+		_G.AntiAgro = v
+		EnableAntiAgro()
+		if not v then Player.Character:BreakJoints() end
+	end
+})
+
+-- Teleport Tab
+local TeleTab = Window:CreateTab("Teleports")
+
+TeleTab:CreateButton({
+	Name = "West City",
+	Callback = function()
+		Player.Character.HumanoidRootPart.CFrame = workspace.SpawnLocation.CFrame
+	end
+})
+
+for _, v in pairs(workspace.GameStuff:GetChildren()) do
+	if v.Name:match("Teleporter") and v.Name ~= "WestCityTeleporter" then
+		local label = v.Name:split("Teleporter")[1]
+		TeleTab:CreateButton({
+			Name = label,
+			Callback = function()
+				Player.Character.HumanoidRootPart.CFrame = v.TeleportPart.CFrame
+			end
+		})
+	end
+end
+
+-- Misc Tab
+local MiscTab = Window:CreateTab("Misc")
+
+MiscTab:CreateButton({
+	Name = "Disable Effects",
+	Callback = function()
+		pcall(function()
+			workspace.Effects:Destroy()
+		end)
+	end
+})
+
+-- Rejoin / Serverhop using utility
+local Util = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/stuff.lua"))()
+
+MiscTab:CreateButton({
+	Name = "Rejoin",
+	Callback = function()
+		Rayfield:Notify({Title = "Rejoining", Content = "Please wait...", Duration = 3})
+		Util:Rejoin()
+	end
+})
+
+MiscTab:CreateButton({
+	Name = "Serverhop",
+	Callback = function()
+		Rayfield:Notify({Title = "Serverhop", Content = "Searching servers...", Duration = 3})
+		Util:Serverhop()
+	end
+})
+
+MiscTab:CreateButton({
+	Name = "Low Pop Serverhop",
+	Callback = function()
+		Rayfield:Notify({Title = "Serverhop", Content = "Finding low server...", Duration = 3})
+		Util:ServerhopLow()
+	end
 })
