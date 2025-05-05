@@ -23,27 +23,20 @@ end)
 function Click()
     local plr = Player.Character.HumanoidRootPart
     local Remote = ReplicatedStoragee.RemoteEvents.BladeCombatRemote
-    local args = {
-        [1] = false,
-        [2] = plr.Position,
-        [3] = plr.CFrame
-    }
+    local args = { false, plr.Position, plr.CFrame }
     Remote:FireServer(unpack(args))
 end
 
--- Teleport to Target
 function Teleport(ene)
     Player.Character.HumanoidRootPart.CFrame = ene.CFrame * CFrame.new(0, 0, 2)
 end
 
--- Insta Kill Logic
 function InstaKill(v)
     if v.Humanoid.Health > 0 then
-        v.Humanoid.Health = 0 -- Insta kill logic
+        v.Humanoid.Health = 0
     end
 end
 
--- Auto Mob Farming
 function AutoMob()
     task.spawn(function()
         while task.wait() do
@@ -53,7 +46,7 @@ function AutoMob()
                     if v:IsA("Model") and v.Name == SelectedMob and v:FindFirstChild("HumanoidRootPart") then
                         Teleport(v.HumanoidRootPart)
                         Click()
-                        InstaKill(v) -- Insta kill selected mob
+                        InstaKill(v)
                     end
                 end
             end)
@@ -61,7 +54,6 @@ function AutoMob()
     end)
 end
 
--- Auto Boss Farming
 function AutoBoss()
     task.spawn(function()
         while task.wait() do
@@ -71,7 +63,7 @@ function AutoBoss()
                     if v:IsA("Model") and v.Name == SelectedBoss and v:FindFirstChild("HumanoidRootPart") then
                         Teleport(v.HumanoidRootPart)
                         Click()
-                        InstaKill(v) -- Insta kill selected boss
+                        InstaKill(v)
                     end
                 end
             end)
@@ -79,7 +71,6 @@ function AutoBoss()
     end)
 end
 
--- Auto All Boss Farming
 function AutoAllBoss()
     task.spawn(function()
         while task.wait() do
@@ -89,7 +80,7 @@ function AutoAllBoss()
                     if v:IsA("Model") and v.Humanoid.Health > 0 then
                         Teleport(v.HumanoidRootPart)
                         Click()
-                        InstaKill(v) -- Insta kill logic for all bosses
+                        InstaKill(v)
                     end
                 end
             end)
@@ -97,9 +88,7 @@ function AutoAllBoss()
     end)
 end
 
--- Anti-Agro Functionality (Optional, still left out the radius stuff)
 if _G.AntiAgro then
-    local Connection
     if _G.Connection then _G.Connection:Disconnect() end
     _G.Connection = RunService.Stepped:Connect(function()
         pcall(function()
@@ -110,28 +99,7 @@ if _G.AntiAgro then
     end)
 end
 
--- GUI Setup using Uzi Library
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/uzi.lua"))()
-local w = library:Window("Uzu Scripts", "Bizarre Odyssey", Color3.fromRGB(66, 134, 245), Enum.KeyCode.LeftControl)
-
-local HomeTab = w:Tab("Home", 6026568198)
-HomeTab:Button("Update:", "", function()
-    library:Notification("Better Autofarm", "Thanks")
-end)
-
-HomeTab:Line()
-HomeTab:Button("Script by Uzu", "", function()
-    setclipboard("discord.gg/waAsQFwcBn")
-    library:Notification("Check your Clipboard", "Alright")
-end)
-HomeTab:Line()
-HomeTab:Bind("Toggle Gui", Enum.KeyCode.LeftControl, function()
-    library:Close()
-end)
-
-local FarmingTab = w:Tab("Farming", 6034287535)
-
--- Function to collect all mobs and their quantities from workspace.Live
+-- Mob List
 function getAllMobsWithQuantities()
     local mobCounts = {}
     for _, v in pairs(workspace.Live:GetChildren()) do
@@ -140,89 +108,97 @@ function getAllMobsWithQuantities()
             mobCounts[mobName] = (mobCounts[mobName] or 0) + 1
         end
     end
-
-    local mobNamesWithCounts = {}
-    for mobName, count in pairs(mobCounts) do
-        table.insert(mobNamesWithCounts, mobName .. " x " .. count)
+    local list = {}
+    for name, count in pairs(mobCounts) do
+        table.insert(list, name .. " x " .. count)
     end
-    return mobNamesWithCounts
+    return list
 end
 
--- Mob Dropdown with all models in workspace.Live and their counts
+-- Rayfield UI Setup
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source.lua"))()
+local Window = Rayfield:CreateWindow({Name = "Bizarre Odyssey", ConfigurationSaving = {Enabled = false}})
+
+local Home = Window:CreateTab("Home", nil)
+Home:CreateButton({Name = "Update:", Callback = function()
+    Rayfield:Notify({Title = "Better Autofarm", Content = "Thanks", Duration = 3})
+end})
+
+Home:CreateButton({Name = "Script by Uzu", Callback = function()
+    setclipboard("discord.gg/waAsQFwcBn")
+    Rayfield:Notify({Title = "Check your Clipboard", Content = "Alright", Duration = 3})
+end})
+
+local Farming = Window:CreateTab("Farming", nil)
 local mobDropdownValues = getAllMobsWithQuantities()
 
-FarmingTab:Toggle("Auto Mob", "", false, function(t)
+Farming:CreateToggle({Name = "Auto Mob", CurrentValue = false, Callback = function(t)
     _G.AutoMob = t
     AutoMob()
-end)
+end})
 
-FarmingTab:Dropdown("Select Mob", mobDropdownValues, function(v)
-    SelectedMob = v:match("^(.-) x")  -- Get just the mob name without quantity
-end)
+Farming:CreateDropdown({Name = "Select Mob", Options = mobDropdownValues, Callback = function(v)
+    SelectedMob = v:match("^(.-) x")
+end})
 
-FarmingTab:Toggle("Auto Boss", "", false, function(t)
+Farming:CreateToggle({Name = "Auto Boss", CurrentValue = false, Callback = function(t)
     _G.AutoBoss = t
     AutoBoss()
-end)
+end})
 
--- Boss Dropdown with all models in workspace.Live
-FarmingTab:Dropdown("Select Boss", mobDropdownValues, function(t)
-    SelectedBoss = t:match("^(.-) x")  -- Get just the boss name without quantity
-end)
+Farming:CreateDropdown({Name = "Select Boss", Options = mobDropdownValues, Callback = function(v)
+    SelectedBoss = v:match("^(.-) x")
+end})
 
-FarmingTab:Toggle("Auto All Boss", "", false, function(t)
+Farming:CreateToggle({Name = "Auto All Boss", CurrentValue = false, Callback = function(t)
     _G.AutoAllBoss = t
     AutoAllBoss()
-end)
+end})
 
-FarmingTab:Line()
-FarmingTab:Toggle("Insta Kill", "", false, function(t)
+Farming:CreateToggle({Name = "Insta Kill", CurrentValue = false, Callback = function(t)
     Kill = t
-end)
+end})
 
-FarmingTab:Toggle("Anti Agro", "Dont use it when doing Auto Boss", false, function(t)
+Farming:CreateToggle({Name = "Anti Agro", CurrentValue = false, Callback = function(t)
     _G.AntiAgro = t
-    if not _G.AntiAgro then
+    if not t then
         Player.Character:BreakJoints()
     end
-end)
+end})
 
--- Teleportation Tab
-local TeleTab = w:Tab("Teleports", 8916381379)
-TeleTab:Button("West City", "", function()
+-- Teleports
+local Teleports = Window:CreateTab("Teleports", nil)
+Teleports:CreateButton({Name = "West City", Callback = function()
     Player.Character.HumanoidRootPart.CFrame = workspace.SpawnLocation.CFrame
-end)
+end})
 
 for _, v in pairs(workspace.GameStuff:GetChildren()) do
     if v.Name:match("Teleporter") and v.Name ~= "WestCityTeleporter" then
         local ssplit = v.Name:split("Teleporter")
-        TeleTab:Button(tostring(ssplit[1]), "", function()
+        Teleports:CreateButton({Name = tostring(ssplit[1]), Callback = function()
             Player.Character.HumanoidRootPart.CFrame = v.TeleportPart.CFrame
-        end)
+        end})
     end
 end
 
--- Misc Tab
-local MiscTab = w:Tab("Misc", 8916127218)
-MiscTab:Button("Disable Effects", "", function()
-    pcall(function()
-        game.Workspace.Effects:Destroy()
-    end)
-end)
+-- Misc
+local Misc = Window:CreateTab("Misc", nil)
+Misc:CreateButton({Name = "Disable Effects", Callback = function()
+    pcall(function() game.Workspace.Effects:Destroy() end)
+end})
 
-MiscTab:Line()
 local Util = loadstring(game:HttpGet("https://raw.githubusercontent.com/uzu01/lua/main/ui/stuff.lua"))()
-MiscTab:Button("Rejoin", "", function()
-    library:Notification("Rejoining Please Wait", "Alright")
+Misc:CreateButton({Name = "Rejoin", Callback = function()
+    Rayfield:Notify({Title = "Rejoining...", Content = "Please wait", Duration = 3})
     Util:Rejoin()
-end)
+end})
 
-MiscTab:Button("Serverhop", "", function()
-    library:Notification("Finding Server... \nPlease Wait", "Alright")
+Misc:CreateButton({Name = "Serverhop", Callback = function()
+    Rayfield:Notify({Title = "Finding Server...", Content = "Please wait", Duration = 3})
     Util:Serverhop()
-end)
+end})
 
-MiscTab:Button("Serverhop Low Server", "", function()
-    library:Notification("Finding Server... \nPlease Wait", "Alright")
+Misc:CreateButton({Name = "Serverhop Low Server", Callback = function()
+    Rayfield:Notify({Title = "Finding Low Server...", Content = "Please wait", Duration = 3})
     Util:ServerhopLow()
-end)
+end})
