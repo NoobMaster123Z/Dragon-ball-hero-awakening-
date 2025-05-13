@@ -1,185 +1,199 @@
--- Mobile Blox Fruits Shift Lock Script
--- For Roblox Executor
+-- Crosshair and Bow Aim Assist Script
+-- For Roblox executors
 
--- Configuration
-local ToggleButtonSize = UDim2.new(0.15, 0, 0.15, 0) -- Size of the toggle button
-local ToggleButtonPosition = UDim2.new(0.8, 0, 0.7, 0) -- Position of the toggle button
-local CameraOffset = Vector3.new(0, 0, -6) -- Camera position offset
-local Smoothness = 0.2 -- Camera movement smoothness (higher = smoother)
-local LookSensitivity = 0.5 -- How fast the camera follows your touch
-
--- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local GuiService = game:GetService("GuiService")
-local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
--- Variables
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local camera = workspace.CurrentCamera
-local shiftLockEnabled = false
-local targetCFrame = nil
-local touchStartPosition = nil
-local currentLookVector = Vector3.new(0, 0, 1)
+-- Crosshair settings
+local crosshairEnabled = true
+local crosshairColor = Color3.fromRGB(0, 255, 0) -- Green crosshair
+local crosshairSize = 12
+local crosshairThickness = 1
+local crosshairGap = 5
 
--- Screen GUI Setup
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MobileShiftLockUI"
-screenGui.Parent = player:WaitForChild("PlayerGui")
+-- Aim assist settings (use at your own risk)
+local aimAssistEnabled = false
+local aimAssistStrength = 0.2 -- Lower values = less noticeable assistance
+local aimAssistMaxDistance = 500
 
--- Toggle Button
-local toggleButton = Instance.new("TextButton")
-toggleButton.Name = "ShiftLockToggle"
-toggleButton.Size = ToggleButtonSize
-toggleButton.Position = ToggleButtonPosition
-toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
-toggleButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.Text = "🔒\nOFF"
-toggleButton.TextScaled = true
-toggleButton.ZIndex = 10
-toggleButton.Parent = screenGui
+-- Create crosshair GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CrosshairGui"
+ScreenGui.Parent = game:GetService("CoreGui")
 
--- Joystick for camera control
-local joystickFrame = Instance.new("Frame")
-joystickFrame.Name = "CameraJoystick"
-joystickFrame.Size = UDim2.new(0.3, 0, 0.3, 0)
-joystickFrame.Position = UDim2.new(0.1, 0, 0.6, 0)
-joystickFrame.BackgroundTransparency = 1
-joystickFrame.Visible = false
-joystickFrame.Parent = screenGui
+local Frame = Instance.new("Frame")
+Frame.Name = "Crosshair"
+Frame.Size = UDim2.new(0, crosshairSize * 2 + crosshairGap, 0, crosshairSize * 2 + crosshairGap)
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+Frame.BackgroundTransparency = 1
+Frame.Parent = ScreenGui
 
-local joystickOuter = Instance.new("ImageLabel")
-joystickOuter.Name = "Outer"
-joystickOuter.Size = UDim2.new(0.4, 0, 0.4, 0)
-joystickOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-joystickOuter.Position = UDim2.new(0.5, 0, 0.5, 0)
-joystickOuter.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-joystickOuter.BackgroundTransparency = 0.7
-joystickOuter.BorderSizePixel = 0
-joystickOuter.Parent = joystickFrame
-
-local joystickInner = Instance.new("ImageLabel")
-joystickInner.Name = "Inner"
-joystickInner.Size = UDim2.new(0.2, 0, 0.2, 0)
-joystickInner.AnchorPoint = Vector2.new(0.5, 0.5)
-joystickInner.Position = UDim2.new(0.5, 0, 0.5, 0)
-joystickInner.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-joystickInner.BackgroundTransparency = 0.5
-joystickInner.BorderSizePixel = 0
-joystickInner.Parent = joystickOuter
-
--- Initialize
-player.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    humanoid = character:WaitForChild("Humanoid")
-    if shiftLockEnabled then
-        humanoid.AutoRotate = false
-    else
-        humanoid.AutoRotate = true
-    end
-end)
-
--- Toggle Function
-local function ToggleShiftLock()
-    shiftLockEnabled = not shiftLockEnabled
-    
-    if shiftLockEnabled then
-        -- Enable shift lock
-        humanoid.AutoRotate = false
-        targetCFrame = CFrame.new(character:GetPivot().Position + Vector3.new(0, 2, 0), character:GetPivot().Position + currentLookVector * 10)
-        toggleButton.Text = "🔓\nON"
-        joystickFrame.Visible = true
-        
-        -- Tween the button color
-        TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(0, 120, 215)}):Play()
-    else
-        -- Disable shift lock
-        humanoid.AutoRotate = true
-        targetCFrame = nil
-        toggleButton.Text = "🔒\nOFF"
-        joystickFrame.Visible = false
-        
-        -- Tween the button color back
-        TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
-    end
+local function createLine(name, position, size)
+    local line = Instance.new("Frame")
+    line.Name = name
+    line.BackgroundColor3 = crosshairColor
+    line.BorderSizePixel = 0
+    line.Size = size
+    line.Position = position
+    line.AnchorPoint = Vector2.new(0.5, 0.5)
+    line.Parent = Frame
+    return line
 end
 
--- Touch Input Handling
-local function handleTouchInput(input, processed)
-    if not shiftLockEnabled or processed then return end
+-- Create crosshair lines
+local topLine = createLine("TopLine", 
+    UDim2.new(0.5, 0, 0.5, -crosshairGap/2 - crosshairSize), 
+    UDim2.new(0, crosshairThickness, 0, crosshairSize))
+local bottomLine = createLine("BottomLine", 
+    UDim2.new(0.5, 0, 0.5, crosshairGap/2 + crosshairSize), 
+    UDim2.new(0, crosshairThickness, 0, crosshairSize))
+local leftLine = createLine("LeftLine", 
+    UDim2.new(0.5, -crosshairGap/2 - crosshairSize, 0.5, 0), 
+    UDim2.new(0, crosshairSize, 0, crosshairThickness))
+local rightLine = createLine("RightLine", 
+    UDim2.new(0.5, crosshairGap/2 + crosshairSize, 0.5, 0), 
+    UDim2.new(0, crosshairSize, 0, crosshairThickness))
+
+-- Function to toggle crosshair
+local function toggleCrosshair(enable)
+    crosshairEnabled = enable
+    Frame.Visible = enable
+end
+
+-- Function to calculate projectile drop (adjust for your specific bow)
+local function calculateBowDrop(distance)
+    -- Adjust these values based on your game's bow mechanics
+    local gravity = 196.2 -- Roblox default gravity
+    local arrowSpeed = 100 -- Adjust based on your bow's arrow speed
     
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if input.UserInputState == Enum.UserInputState.Begin then
-            -- Check if touch is in joystick area
-            local touchPos = input.Position
-            local joystickPos = joystickFrame.AbsolutePosition
-            local joystickSize = joystickFrame.AbsoluteSize
-            
-            if touchPos.X >= joystickPos.X and touchPos.X <= joystickPos.X + joystickSize.X and
-               touchPos.Y >= joystickPos.Y and touchPos.Y <= joystickPos.Y + joystickSize.Y then
-                touchStartPosition = Vector2.new(touchPos.X, touchPos.Y)
+    if distance <= 0 then return 0 end
+    
+    local time = distance / arrowSpeed
+    local drop = 0.5 * gravity * time * time
+    
+    return drop
+end
+
+-- Aim assist function (use carefully)
+local function findBestTarget()
+    if not aimAssistEnabled then return nil end
+    
+    local character = LocalPlayer.Character
+    if not character then return nil end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+    
+    local bestTarget = nil
+    local bestAngle = math.rad(5) -- Max angle in radians
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
+                if distance <= aimAssistMaxDistance then
+                    local screenPoint = workspace.CurrentCamera:WorldToScreenPoint(targetHRP.Position)
+                    if screenPoint.Z > 0 then -- If target is in front of camera
+                        local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+                        local targetPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local angle = (mousePos - targetPos).Magnitude / 1000 -- Rough angle approximation
+                        
+                        if angle < bestAngle then
+                            bestAngle = angle
+                            bestTarget = targetHRP
+                        end
+                    end
+                end
             end
-        elseif input.UserInputState == Enum.UserInputState.Change and touchStartPosition then
-            local currentPos = input.Position
-            local delta = (currentPos - touchStartPosition) * LookSensitivity
-            
-            -- Update joystick visual
-            local maxDist = joystickOuter.AbsoluteSize.X / 2
-            local dist = math.min(maxDist, delta.Magnitude)
-            local direction = delta.Unit
-            
-            joystickInner.Position = UDim2.new(
-                0.5 + (direction.X * dist / maxDist * 0.5), 0,
-                0.5 + (direction.Y * dist / maxDist * 0.5), 0
+        end
+    end
+    
+    return bestTarget
+end
+
+-- Connect to bow firing
+local function onBowFired()
+    if not crosshairEnabled then return end
+    
+    -- Get the center of the screen
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    local center = Vector2.new(viewportSize.X/2, viewportSize.Y/2)
+    
+    -- Optional: Add slight aim adjustment for distant targets
+    local target = findBestTarget()
+    if target and aimAssistEnabled then
+        local targetScreenPos = workspace.CurrentCamera:WorldToScreenPoint(target.Position)
+        if targetScreenPos.Z > 0 then
+            local adjustedPos = Vector2.new(
+                center.X + (targetScreenPos.X - center.X) * aimAssistStrength,
+                center.Y + (targetScreenPos.Y - center.Y) * aimAssistStrength
             )
             
-            -- Convert screen delta to look vector
-            local lookDelta = Vector3.new(delta.X, 0, delta.Y)
-            if lookDelta.Magnitude > 0 then
-                currentLookVector = lookDelta.Unit
-            end
-        elseif input.UserInputState == Enum.UserInputState.End then
-            touchStartPosition = nil
-            -- Reset joystick position
-            TweenService:Create(joystickInner, TweenInfo.new(0.2), {Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+            -- Simulate mouse movement to adjusted position
+            mousemoverel(adjustedPos.X - Mouse.X, adjustedPos.Y - Mouse.Y)
+        end
+    end
+    
+    -- For games with projectile drop, you might need to aim slightly higher
+    local hitPart, hitPosition = workspace:FindPartOnRayWithIgnoreList(
+        Ray.new(
+            workspace.CurrentCamera.CFrame.Position,
+            workspace.CurrentCamera.CFrame.LookVector * 1000
+        ),
+        {LocalPlayer.Character}
+    )
+    
+    if hitPosition then
+        local distance = (workspace.CurrentCamera.CFrame.Position - hitPosition).Magnitude
+        local dropCompensation = calculateBowDrop(distance)
+        
+        -- Adjust aim upward based on drop calculation
+        if dropCompensation > 0 then
+            local compensationPixels = dropCompensation * 50 -- Adjust multiplier as needed
+            mousemoverel(0, -compensationPixels)
         end
     end
 end
 
--- Button click handler
-toggleButton.Activated:Connect(ToggleShiftLock)
+-- Listen for bow firing (you'll need to adjust this for your specific game)
+-- This is just a template - you'll need to connect to your game's actual bow firing event
+local function setupBowListener()
+    -- Example: Check if player has a bow equipped and connect to its firing event
+    -- This will vary greatly depending on the game you're playing
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        local humanoid = character:WaitForChild("Humanoid")
+        
+        humanoid:GetPropertyChangedSignal("Tool"):Connect(function()
+            local tool = humanoid:FindFirstChildOfClass("Tool")
+            if tool and tool.Name:lower():find("bow") then
+                -- This is where you'd connect to the bow's firing event
+                -- Since games implement this differently, you'll need to adjust
+                tool.Activated:Connect(onBowFired)
+            end
+        end)
+    end)
+end
 
--- Input connections
-UserInputService.TouchStarted:Connect(handleTouchInput)
-UserInputService.TouchMoved:Connect(handleTouchInput)
-UserInputService.TouchEnded:Connect(handleTouchInput)
-
--- Camera Update
-RunService.RenderStepped:Connect(function(dt)
-    if shiftLockEnabled and character and humanoid and humanoid.Health > 0 then
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if rootPart then
-            -- Update target CFrame to follow character
-            targetCFrame = CFrame.new(rootPart.Position + Vector3.new(0, 2, 0), rootPart.Position + currentLookVector * 10)
-            
-            -- Smooth camera transition
-            camera.CFrame = camera.CFrame:Lerp(targetCFrame + (targetCFrame:Inverse() * CFrame.new(CameraOffset)), Smoothness)
-            
-            -- Update humanoid movement direction based on current look vector
-            humanoid:Move(currentLookVector)
-        end
+-- Toggle commands
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.P then
+        crosshairEnabled = not crosshairEnabled
+        Frame.Visible = crosshairEnabled
+    elseif input.KeyCode == Enum.KeyCode.O then
+        aimAssistEnabled = not aimAssistEnabled
+        print("Aim assist:", aimAssistEnabled and "ON" or "OFF")
     end
 end)
 
--- Notification
-game.StarterGui:SetCore("SendNotification", {
-    Title = "Mobile Shift Lock Loaded",
-    Text = "Tap the lock button to toggle shift lock mode",
-    Duration = 5
-})
-
-print("Mobile Blox Fruits Shift Lock script loaded successfully!")
+-- Initialize
+setupBowListener()
+print("Crosshair script loaded")
+print("Press P to toggle crosshair")
+print("Press O to toggle aim assist (use at your own risk)")
