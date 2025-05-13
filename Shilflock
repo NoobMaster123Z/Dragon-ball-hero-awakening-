@@ -1,0 +1,185 @@
+-- Mobile Blox Fruits Shift Lock Script
+-- For Roblox Executor
+
+-- Configuration
+local ToggleButtonSize = UDim2.new(0.15, 0, 0.15, 0) -- Size of the toggle button
+local ToggleButtonPosition = UDim2.new(0.8, 0, 0.7, 0) -- Position of the toggle button
+local CameraOffset = Vector3.new(0, 0, -6) -- Camera position offset
+local Smoothness = 0.2 -- Camera movement smoothness (higher = smoother)
+local LookSensitivity = 0.5 -- How fast the camera follows your touch
+
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
+
+-- Variables
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local camera = workspace.CurrentCamera
+local shiftLockEnabled = false
+local targetCFrame = nil
+local touchStartPosition = nil
+local currentLookVector = Vector3.new(0, 0, 1)
+
+-- Screen GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MobileShiftLockUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ShiftLockToggle"
+toggleButton.Size = ToggleButtonSize
+toggleButton.Position = ToggleButtonPosition
+toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+toggleButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "🔒\nOFF"
+toggleButton.TextScaled = true
+toggleButton.ZIndex = 10
+toggleButton.Parent = screenGui
+
+-- Joystick for camera control
+local joystickFrame = Instance.new("Frame")
+joystickFrame.Name = "CameraJoystick"
+joystickFrame.Size = UDim2.new(0.3, 0, 0.3, 0)
+joystickFrame.Position = UDim2.new(0.1, 0, 0.6, 0)
+joystickFrame.BackgroundTransparency = 1
+joystickFrame.Visible = false
+joystickFrame.Parent = screenGui
+
+local joystickOuter = Instance.new("ImageLabel")
+joystickOuter.Name = "Outer"
+joystickOuter.Size = UDim2.new(0.4, 0, 0.4, 0)
+joystickOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+joystickOuter.Position = UDim2.new(0.5, 0, 0.5, 0)
+joystickOuter.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+joystickOuter.BackgroundTransparency = 0.7
+joystickOuter.BorderSizePixel = 0
+joystickOuter.Parent = joystickFrame
+
+local joystickInner = Instance.new("ImageLabel")
+joystickInner.Name = "Inner"
+joystickInner.Size = UDim2.new(0.2, 0, 0.2, 0)
+joystickInner.AnchorPoint = Vector2.new(0.5, 0.5)
+joystickInner.Position = UDim2.new(0.5, 0, 0.5, 0)
+joystickInner.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+joystickInner.BackgroundTransparency = 0.5
+joystickInner.BorderSizePixel = 0
+joystickInner.Parent = joystickOuter
+
+-- Initialize
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoid = character:WaitForChild("Humanoid")
+    if shiftLockEnabled then
+        humanoid.AutoRotate = false
+    else
+        humanoid.AutoRotate = true
+    end
+end)
+
+-- Toggle Function
+local function ToggleShiftLock()
+    shiftLockEnabled = not shiftLockEnabled
+    
+    if shiftLockEnabled then
+        -- Enable shift lock
+        humanoid.AutoRotate = false
+        targetCFrame = CFrame.new(character:GetPivot().Position + Vector3.new(0, 2, 0), character:GetPivot().Position + currentLookVector * 10)
+        toggleButton.Text = "🔓\nON"
+        joystickFrame.Visible = true
+        
+        -- Tween the button color
+        TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(0, 120, 215)}):Play()
+    else
+        -- Disable shift lock
+        humanoid.AutoRotate = true
+        targetCFrame = nil
+        toggleButton.Text = "🔒\nOFF"
+        joystickFrame.Visible = false
+        
+        -- Tween the button color back
+        TweenService:Create(toggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
+    end
+end
+
+-- Touch Input Handling
+local function handleTouchInput(input, processed)
+    if not shiftLockEnabled or processed then return end
+    
+    if input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputState == Enum.UserInputState.Begin then
+            -- Check if touch is in joystick area
+            local touchPos = input.Position
+            local joystickPos = joystickFrame.AbsolutePosition
+            local joystickSize = joystickFrame.AbsoluteSize
+            
+            if touchPos.X >= joystickPos.X and touchPos.X <= joystickPos.X + joystickSize.X and
+               touchPos.Y >= joystickPos.Y and touchPos.Y <= joystickPos.Y + joystickSize.Y then
+                touchStartPosition = Vector2.new(touchPos.X, touchPos.Y)
+            end
+        elseif input.UserInputState == Enum.UserInputState.Change and touchStartPosition then
+            local currentPos = input.Position
+            local delta = (currentPos - touchStartPosition) * LookSensitivity
+            
+            -- Update joystick visual
+            local maxDist = joystickOuter.AbsoluteSize.X / 2
+            local dist = math.min(maxDist, delta.Magnitude)
+            local direction = delta.Unit
+            
+            joystickInner.Position = UDim2.new(
+                0.5 + (direction.X * dist / maxDist * 0.5), 0,
+                0.5 + (direction.Y * dist / maxDist * 0.5), 0
+            )
+            
+            -- Convert screen delta to look vector
+            local lookDelta = Vector3.new(delta.X, 0, delta.Y)
+            if lookDelta.Magnitude > 0 then
+                currentLookVector = lookDelta.Unit
+            end
+        elseif input.UserInputState == Enum.UserInputState.End then
+            touchStartPosition = nil
+            -- Reset joystick position
+            TweenService:Create(joystickInner, TweenInfo.new(0.2), {Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+        end
+    end
+end
+
+-- Button click handler
+toggleButton.Activated:Connect(ToggleShiftLock)
+
+-- Input connections
+UserInputService.TouchStarted:Connect(handleTouchInput)
+UserInputService.TouchMoved:Connect(handleTouchInput)
+UserInputService.TouchEnded:Connect(handleTouchInput)
+
+-- Camera Update
+RunService.RenderStepped:Connect(function(dt)
+    if shiftLockEnabled and character and humanoid and humanoid.Health > 0 then
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            -- Update target CFrame to follow character
+            targetCFrame = CFrame.new(rootPart.Position + Vector3.new(0, 2, 0), rootPart.Position + currentLookVector * 10)
+            
+            -- Smooth camera transition
+            camera.CFrame = camera.CFrame:Lerp(targetCFrame + (targetCFrame:Inverse() * CFrame.new(CameraOffset)), Smoothness)
+            
+            -- Update humanoid movement direction based on current look vector
+            humanoid:Move(currentLookVector)
+        end
+    end
+end)
+
+-- Notification
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Mobile Shift Lock Loaded",
+    Text = "Tap the lock button to toggle shift lock mode",
+    Duration = 5
+})
+
+print("Mobile Blox Fruits Shift Lock script loaded successfully!")
